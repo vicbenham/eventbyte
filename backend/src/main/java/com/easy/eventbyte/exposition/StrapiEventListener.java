@@ -1,20 +1,34 @@
 package com.easy.eventbyte.exposition;
 
 import com.easy.eventbyte.config.RabbitMQConfig;
+import com.easy.eventbyte.dto.StrapiEventMessage;
+import com.easy.eventbyte.service.EventIngestionService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
+import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.amqp.support.AmqpHeaders;
-import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
+
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class StrapiEventListener {
 
+    private final JsonMapper jsonMapper;
+    private final EventIngestionService eventIngestionService;
+
     @RabbitListener(queues = RabbitMQConfig.QUEUE)
-    public void onMessage(String body, @Header(AmqpHeaders.RECEIVED_ROUTING_KEY) String routingKey) {
-        log.info("body: {}, routingKey: {}", body, routingKey);
+    public void onMessage(Message message) {
+
+        StrapiEventMessage event = jsonMapper.readValue(message.getBody(), StrapiEventMessage.class);
+        String routingKey = message.getMessageProperties().getReceivedRoutingKey();
+
+        switch (routingKey) {
+            case "event.created", "event.updated" -> eventIngestionService.save(event);
+            case "event.deleted" -> eventIngestionService.delete(event.id());
+            case null -> {}
+            default -> throw new AmqpRejectAndDontRequeueException("Routing key non gérée : " + routingKey);
+        }
     }
 }
