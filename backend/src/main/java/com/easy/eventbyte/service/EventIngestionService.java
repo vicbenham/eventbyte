@@ -1,0 +1,88 @@
+package com.easy.eventbyte.service;
+
+import com.easy.eventbyte.dto.StrapiEventMessage;
+import com.easy.eventbyte.dto.TicketMessage;
+import com.easy.eventbyte.model.DeletedEvent;
+import com.easy.eventbyte.model.Event;
+import com.easy.eventbyte.model.Ticket;
+import com.easy.eventbyte.model.Venue;
+import com.easy.eventbyte.repository.DeletedEventRepository;
+import com.easy.eventbyte.repository.EventRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+/**
+ * Répercute en base les événements créés, modifiés ou supprimés dans Strapi.
+ * Toutes les opérations sont idempotentes : un message reçu deux fois ne crée pas de doublon.
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class EventIngestionService {
+
+    private final EventRepository eventRepository;
+    private final DeletedEventRepository deletedEventRepository;
+
+
+    public void save(StrapiEventMessage message) {
+        if (deletedEventRepository.existsById(message.id())) {
+            log.info("Événement {} déjà supprimé, message ignoré", message.id());
+            return;
+        }
+
+        Event event = eventRepository.findById(message.id()).orElseGet(() -> new Event(message.id()));
+        event.setTitle(message.title());
+        event.setDescription(message.description());
+        event.setCoverUrl(message.cover());
+        event.setVenue(new Venue(
+                message.venue().name(),
+                message.venue().address(),
+                message.venue().latitude(),
+                message.venue().longitude()));
+        event.setUpdatedAt(Instant.now());
+        updateTickets(event, message);
+
+        eventRepository.save(event);
+        log.info("Événement {} enregistré avec {} ticket(s)", event.getId(), event.getTickets().size());
+    }
+
+    public void delete(String eventId) {
+        eventRepository.deleteById(eventId);
+        if (!deletedEventRepository.existsById(eventId)) {
+            deletedEventRepository.save(new DeletedEvent(eventId, Instant.now()));
+        }
+        log.info("Événement {} supprimé", eventId);
+    }
+
+
+    private void updateTickets(Event event, StrapiEventMessage message) {
+        List<TicketMessage> tickets = message.tickets() == null ? List.of() : message.tickets();
+        Map<String, TicketMessage> incoming = tickets.stream()
+                .collect(Collectors.toMap(TicketMessage::id, Function.identity()));
+
+        event.getTickets().removeIf(ticket -> !incoming.containsKey(ticket.getId()));
+
+        Map<String, Ticket> existing = event.getTickets().stream()
+                .collect(Collectors.toMap(Ticket::getId, Function.identity()));
+
+        for (TicketMessage ticketMessage : tickets) {
+            Ticket ticket = existing.get(ticketMessage.id());
+            if (ticket == null) {
+                ticket = new Ticket(ticketMessage.id(), event);
+                event.getTickets().add(ticket);
+            }
+            ticket.setName(ticketMessage.name());
+            ticket.setQuantity(ticketMessage.quantity());
+            ticket.setPriceInCents(ticketMessage.priceInCents());
+        }
+    }
+}
