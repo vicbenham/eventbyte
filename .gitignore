@@ -1,1 +1,14 @@
 .eventbyte/
+
+# IDE (config propre à chaque poste)
+.idea/
+*.iml
+.vscode/
+
+# Secrets : seuls les .env.example sont versionnés
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store

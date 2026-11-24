@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="keycloak-theme-for-kc-22-to-25">
-    <CLASSES>
-      <root url="jar://$PROJECT_DIR$/docker/themes/keycloak-theme-for-kc-22-to-25.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>
