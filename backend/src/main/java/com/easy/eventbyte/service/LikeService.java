@@ -21,4 +21,12 @@ public class LikeService {
         }
         eventLikeRepository.like(userId, eventId);
     }
+
+    /**
+     * Idempotent : retirer un like absent, ou celui d'un événement supprimé entre-temps, réussit aussi
+     * (le frontend réafficherait le like en cas d'erreur).
+     */
+    public void unlike(String userId, String eventId) {
+        eventLikeRepository.unlike(userId, eventId);
+    }
 }
