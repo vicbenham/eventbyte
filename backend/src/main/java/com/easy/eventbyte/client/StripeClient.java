@@ -60,4 +60,33 @@ public class StripeClient {
             throw new PaymentProviderException("Création du paiement Stripe impossible : " + e.getMessage(), e);
         }
     }
+
+    /** Rembourse intégralement un paiement (idempotent : un second appel ne rembourse pas deux fois). */
+    public void refund(String paymentIntentId) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("payment_intent", paymentIntentId);
+        try {
+            restClient.post()
+                    .uri("/v1/refunds")
+                    .header("Idempotency-Key", "refund-" + paymentIntentId)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientException e) {
+            throw new PaymentProviderException("Remboursement Stripe impossible : " + e.getMessage(), e);
+        }
+    }
+
+    /** Annule un paiement pas encore effectué : il ne pourra plus être payé. */
+    public void cancelPaymentIntent(String paymentIntentId) {
+        try {
+            restClient.post()
+                    .uri("/v1/payment_intents/{id}/cancel", paymentIntentId)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientException e) {
+            throw new PaymentProviderException("Annulation du paiement Stripe impossible : " + e.getMessage(), e);
+        }
+    }
 }

@@ -1,5 +1,6 @@
 package com.easy.eventbyte.service;
 
+import com.easy.eventbyte.client.StripeClient;
 import com.easy.eventbyte.model.Booking;
 import com.easy.eventbyte.model.BookingLine;
 import com.easy.eventbyte.model.BookingStatus;
@@ -9,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.List;
@@ -25,6 +28,7 @@ public class BookingExpirationService {
 
     private final BookingRepository bookingRepository;
     private final TicketStockService ticketStockService;
+    private final StripeClient stripeClient;
 
     /** Réservations non payées dont l'échéance est dépassée. */
     @Transactional(readOnly = true)
@@ -48,7 +52,28 @@ public class BookingExpirationService {
         Map<String, Integer> places = booking.getLines().stream()
                 .collect(Collectors.toMap(BookingLine::getTicketId, BookingLine::getQuantity));
         ticketStockService.releaseAfterCommit(places);
+        cancelPaymentAfterCommit(booking.getPaymentIntentId());
         log.info("Réservation {} expirée, places rendues : {}", bookingId, places);
         return true;
+    }
+
+    /**
+     * Annule le paiement chez Stripe pour qu'une réservation expirée ne puisse plus être payée.
+     * Au mieux : si le paiement vient d'aboutir, l'annulation échoue et le webhook le remboursera (PaymentService).
+     */
+    private void cancelPaymentAfterCommit(String paymentIntentId) {
+        if (paymentIntentId == null || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    stripeClient.cancelPaymentIntent(paymentIntentId);
+                } catch (RuntimeException e) {
+                    log.warn("Annulation du paiement {} impossible : {}", paymentIntentId, e.getMessage());
+                }
+            }
+        });
     }
 }

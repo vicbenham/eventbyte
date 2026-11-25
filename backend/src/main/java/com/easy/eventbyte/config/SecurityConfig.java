@@ -30,6 +30,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/error").permitAll()
+                        // Appelé par Stripe, sans token : l'authenticité vient de la signature du webhook
+                        .requestMatchers(HttpMethod.POST, "/payments/stripe/webhook").permitAll()
                         // Routes publiques du contrat d'API (consultation des événements et des tickets)
                         .requestMatchers(HttpMethod.GET, "/events/liked").authenticated()
                         .requestMatchers(HttpMethod.GET, "/events", "/events/**").permitAll()
