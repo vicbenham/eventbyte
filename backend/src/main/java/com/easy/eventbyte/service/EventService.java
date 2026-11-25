@@ -1,6 +1,7 @@
 package com.easy.eventbyte.service;
 
 import com.easy.eventbyte.dto.EventResponse;
+import com.easy.eventbyte.model.Event;
 import com.easy.eventbyte.repository.EventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -8,6 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /** Consultation des événements par le public. */
 @Service
@@ -36,6 +40,22 @@ public class EventService {
                         DISCOVER_LIMIT)
                 .stream()
                 // likedCount : les likes arrivent avec l'US-8
+                .map(event -> EventResponse.from(event, 0))
+                .toList();
+    }
+
+    /**
+     * Événements correspondant aux ids, dans l'ordre demandé (favoris, réservations).
+     * Les ids inconnus, supprimés ou sans date sont ignorés, les doublons ne sont renvoyés qu'une fois.
+     */
+    public List<EventResponse> getByIds(List<String> ids) {
+        List<String> distinctIds = ids.stream().map(String::trim).filter(id -> !id.isEmpty()).distinct().toList();
+        Map<String, Event> eventsById = eventRepository.findAllById(distinctIds).stream()
+                .collect(Collectors.toMap(Event::getId, Function.identity()));
+
+        return distinctIds.stream()
+                .map(eventsById::get)
+                .filter(event -> event != null && event.getStartAt() != null)
                 .map(event -> EventResponse.from(event, 0))
                 .toList();
     }
