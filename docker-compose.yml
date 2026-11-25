@@ -105,6 +105,8 @@ services:
       DB_PORT: 5432
       RABBITMQ_HOST: rabbitmq
       REDIS_HOST: redis
+      # Clés publiques Keycloak via le réseau Docker (l'issuer reste http://localhost:8180/...)
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/eventbyte/protocol/openid-connect/certs
     depends_on:
       postgres:
         condition: service_healthy
