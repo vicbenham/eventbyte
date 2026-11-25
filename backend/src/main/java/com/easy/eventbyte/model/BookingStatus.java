@@ -16,6 +16,9 @@ public enum BookingStatus {
     /** Statuts qui immobilisent des places : elles sont déduites du stock disponible. */
     public static final List<BookingStatus> HOLDING_STOCK = List.of(RESERVED, AWAITING_PAYMENT, CONFIRMED);
 
+    /** Statuts d'une réservation pas encore payée : elle expire à son échéance. */
+    public static final List<BookingStatus> AWAITING_PAYMENT_STATUSES = List.of(RESERVED, AWAITING_PAYMENT);
+
     private final String apiValue;
 
     BookingStatus(String apiValue) {
