@@ -110,6 +110,7 @@ services:
       # Lecture de la date des événements dans Strapi (token Read-only, dans le .env racine non versionné)
       STRAPI_URL: http://strapi:1337
       STRAPI_API_TOKEN: ${STRAPI_API_TOKEN:-}
+      MEILISEARCH_HOST: http://meilisearch:7700
     depends_on:
       postgres:
         condition: service_healthy
@@ -117,6 +118,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      meilisearch:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:3000/actuator/health"]
       interval: 10s
