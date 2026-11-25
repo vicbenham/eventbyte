@@ -1,7 +1,7 @@
 package com.easy.eventbyte.repository;
 
 import com.easy.eventbyte.model.Booking;
-import com.easy.eventbyte.model.BookingStatus;
+import com.easy.eventbyte.domain.BookingStatus;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -27,18 +27,19 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
     List<Booking> findByUserIdOrderByBookedAtDesc(String userId);
 
     /**
-     * Places immobilisées par ticket : réservations réservées, en attente de paiement ou confirmées
-     * (voir BookingStatus.HOLDING_STOCK). Les tickets sans réservation sont absents du résultat.
+     * Places immobilisées par ticket, par les réservations dont le statut est dans {@code statuses}.
+     * Les tickets sans réservation sont absents du résultat.
      */
     @Query(value = """
             SELECT bl.ticket_id AS ticketId, SUM(bl.quantity) AS held
             FROM booking_lines bl
             JOIN bookings b ON b.id = bl.booking_id
-            WHERE b.status IN ('RESERVED', 'AWAITING_PAYMENT', 'CONFIRMED')
+            WHERE b.status IN (:statuses)
               AND bl.ticket_id IN (:ticketIds)
             GROUP BY bl.ticket_id
             """, nativeQuery = true)
-    List<TicketHeldCount> countHeldByTicketIds(@Param("ticketIds") Collection<String> ticketIds);
+    List<TicketHeldCount> countHeldByTicketIds(@Param("ticketIds") Collection<String> ticketIds,
+                                               @Param("statuses") Collection<String> statuses);
 
     /** Réservations non payées dont l'échéance est dépassée, les plus anciennes d'abord. */
     @Query("SELECT b.id FROM Booking b WHERE b.status IN :statuses AND b.expiresAt < :now ORDER BY b.expiresAt")
@@ -80,7 +81,9 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
         if (ticketIds.isEmpty()) {
             return Map.of();
         }
-        return countHeldByTicketIds(ticketIds).stream()
+        // Statuts qui immobilisent des places : règle du domaine (BookingStatus.HOLDING_STOCK)
+        List<String> holding = BookingStatus.HOLDING_STOCK.stream().map(Enum::name).toList();
+        return countHeldByTicketIds(ticketIds, holding).stream()
                 .collect(Collectors.toMap(TicketHeldCount::getTicketId, TicketHeldCount::getHeld));
     }
 }

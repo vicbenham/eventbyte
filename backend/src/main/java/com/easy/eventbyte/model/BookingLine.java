@@ -16,8 +16,4 @@ public class BookingLine {
     private String name;
     private int quantity;
     private long unitPrice;
-
-    public long subtotal() {
-        return unitPrice * quantity;
-    }
 }

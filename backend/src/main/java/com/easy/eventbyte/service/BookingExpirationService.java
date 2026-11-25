@@ -3,7 +3,7 @@ package com.easy.eventbyte.service;
 import com.easy.eventbyte.client.StripeClient;
 import com.easy.eventbyte.model.Booking;
 import com.easy.eventbyte.model.BookingLine;
-import com.easy.eventbyte.model.BookingStatus;
+import com.easy.eventbyte.domain.BookingStatus;
 import com.easy.eventbyte.repository.BookingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

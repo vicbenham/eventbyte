@@ -1,5 +1,6 @@
 package com.easy.eventbyte.dto;
 
+import com.easy.eventbyte.domain.TicketStock;
 import com.easy.eventbyte.model.Event;
 import com.easy.eventbyte.model.Ticket;
 
@@ -40,8 +41,9 @@ public record EventResponse(
 
     /** Complet quand plus aucun type de ticket n'a de place réservable. */
     private static boolean isSoldOut(Event event, Map<String, Long> heldByTicketId) {
-        return event.getTickets().stream()
-                .allMatch(ticket -> ticket.availableQuantity(heldByTicketId.getOrDefault(ticket.getId(), 0L)) <= 0);
+        return TicketStock.isSoldOut(event.getTickets().stream()
+                .map(ticket -> ticket.availableQuantity(heldByTicketId.getOrDefault(ticket.getId(), 0L)))
+                .toList());
     }
 
     /** Prix le plus bas en centimes parmi les tickets, 0 si l'événement n'en a pas. */

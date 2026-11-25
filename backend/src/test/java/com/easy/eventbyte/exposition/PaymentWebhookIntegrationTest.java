@@ -6,7 +6,7 @@ import com.easy.eventbyte.client.StripeWebhookVerifier;
 import com.easy.eventbyte.dto.BookingItemRequest;
 import com.easy.eventbyte.dto.StripePaymentIntent;
 import com.easy.eventbyte.model.Booking;
-import com.easy.eventbyte.model.BookingStatus;
+import com.easy.eventbyte.domain.BookingStatus;
 import com.easy.eventbyte.model.Event;
 import com.easy.eventbyte.model.Ticket;
 import com.easy.eventbyte.model.Venue;

@@ -1,7 +1,6 @@
 package com.easy.eventbyte.dto;
 
 import com.easy.eventbyte.model.Booking;
-import com.easy.eventbyte.model.BookingStatus;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.Instant;
@@ -20,7 +19,7 @@ public record BookingResponse(
         String eventId,
         Instant bookedAt,
         List<BookingLineResponse> lines,
-        BookingStatus status,
+        String status,
         long total,
         long fees,
         @JsonInclude(JsonInclude.Include.NON_NULL) String clientSecret
@@ -32,7 +31,7 @@ public record BookingResponse(
                 booking.getEventId(),
                 booking.getBookedAt(),
                 booking.getLines().stream().map(BookingLineResponse::from).toList(),
-                booking.getStatus(),
+                booking.getStatus().apiValue(),
                 booking.getTotal(),
                 booking.getFees(),
                 booking.getClientSecret());

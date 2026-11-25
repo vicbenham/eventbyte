@@ -5,7 +5,8 @@ import com.easy.eventbyte.client.StripeWebhookVerifier;
 import com.easy.eventbyte.dto.StripeEvent;
 import com.easy.eventbyte.dto.StripeEventPaymentIntent;
 import com.easy.eventbyte.model.Booking;
-import com.easy.eventbyte.model.BookingStatus;
+import com.easy.eventbyte.domain.BookingStatus;
+import com.easy.eventbyte.domain.PaymentDecision;
 import com.easy.eventbyte.repository.BookingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,10 +18,9 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Résultat des paiements, reçu de Stripe par webhook.
  *
- * <p>Paiement arrivé après l'expiration de la réservation (US-17, décision du groupe) :
- * à l'expiration, le PaymentIntent est annulé chez Stripe, ce qui empêche normalement de payer.
- * Si un paiement aboutit quand même (course entre l'expiration et le paiement), la réservation
- * reste expired — ses places ont déjà été remises en vente — et le paiement est remboursé intégralement.</p>
+ * <p>La règle (confirmer, ignorer un doublon, rembourser un paiement tardif) est dans {@link PaymentDecision}.
+ * À l'expiration, le PaymentIntent est aussi annulé chez Stripe (BookingExpirationService), ce qui empêche
+ * normalement de payer une réservation expirée.</p>
  */
 @Slf4j
 @Service
@@ -55,23 +55,31 @@ public class PaymentService {
             log.warn("Paiement {} sans réservation associée, ignoré", intent.id());
             return;
         }
-        if (intent.amountReceived() != booking.getTotal()) {
-            log.error("Paiement {} de {} centimes pour la réservation {} de {} centimes : non confirmée",
-                    intent.id(), intent.amountReceived(), booking.getId(), booking.getTotal());
-            return;
+        PaymentDecision decision = PaymentDecision.onPaymentSucceeded(
+                booking.getStatus(), intent.amountReceived(), booking.getTotal());
+
+        if (decision == PaymentDecision.CONFIRM) {
+            // Conditionnel : si la réservation vient d'expirer, rien ne change et on rembourse
+            int confirmed = bookingRepository.confirm(booking.getId(), BookingStatus.CONFIRMED,
+                    BookingStatus.AWAITING_PAYMENT_STATUSES);
+            if (confirmed == 1) {
+                log.info("Réservation {} confirmée", booking.getId());
+                bookingEventPublisher.publishAfterCommit(booking.getUserId(), booking.getId());
+                return;
+            }
+            decision = PaymentDecision.REFUND;
         }
 
-        int confirmed = bookingRepository.confirm(booking.getId(), BookingStatus.CONFIRMED,
-                BookingStatus.AWAITING_PAYMENT_STATUSES);
-        if (confirmed == 1) {
-            log.info("Réservation {} confirmée", booking.getId());
-            bookingEventPublisher.publishAfterCommit(booking.getUserId(), booking.getId());
-        } else if (booking.getStatus() == BookingStatus.CONFIRMED) {
-            log.info("Réservation {} déjà confirmée (webhook rejoué)", booking.getId());
-        } else {
-            // Expirée (ou rejetée) : les places ne sont plus garanties, on rembourse
-            log.warn("Paiement {} reçu pour la réservation {} {} : remboursement", intent.id(), booking.getId(), booking.getStatus());
-            stripeClient.refund(intent.id());
+        switch (decision) {
+            case ALREADY_CONFIRMED -> log.info("Réservation {} déjà confirmée (webhook rejoué)", booking.getId());
+            case AMOUNT_MISMATCH -> log.error("Paiement {} de {} centimes pour la réservation {} de {} centimes : non confirmée",
+                    intent.id(), intent.amountReceived(), booking.getId(), booking.getTotal());
+            case REFUND -> {
+                log.warn("Paiement {} reçu pour la réservation {} qui n'attend plus de paiement : remboursement",
+                        intent.id(), booking.getId());
+                stripeClient.refund(intent.id());
+            }
+            case CONFIRM -> throw new IllegalStateException("déjà traité");
         }
     }
 
