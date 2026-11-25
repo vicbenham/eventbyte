@@ -33,6 +33,7 @@ public class PaymentService {
     private final StripeClient stripeClient;
     private final BookingRepository bookingRepository;
     private final JsonMapper jsonMapper;
+    private final BookingEventPublisher bookingEventPublisher;
 
     /** Traite un webhook Stripe. Idempotent : Stripe peut livrer plusieurs fois le même événement. */
     @Transactional
@@ -64,6 +65,7 @@ public class PaymentService {
                 BookingStatus.AWAITING_PAYMENT_STATUSES);
         if (confirmed == 1) {
             log.info("Réservation {} confirmée", booking.getId());
+            bookingEventPublisher.publishAfterCommit(booking.getUserId(), booking.getId());
         } else if (booking.getStatus() == BookingStatus.CONFIRMED) {
             log.info("Réservation {} déjà confirmée (webhook rejoué)", booking.getId());
         } else {

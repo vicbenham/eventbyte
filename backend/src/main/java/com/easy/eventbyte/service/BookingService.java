@@ -33,6 +33,7 @@ public class BookingService {
     private final TicketRepository ticketRepository;
     private final TicketStockService ticketStockService;
     private final StripeClient stripeClient;
+    private final BookingEventPublisher bookingEventPublisher;
 
     /** Délai pour payer une réservation (aligné sur le compte à rebours du frontend). */
     @Value("${booking.expiration}")
@@ -66,6 +67,7 @@ public class BookingService {
             requestPayment(booking);
         }
         log.info("Réservation {} de {} : {}", booking.getId(), userId, booking.getStatus());
+        bookingEventPublisher.publishAfterCommit(userId, booking.getId());
         return booking.getId();
     }
 
