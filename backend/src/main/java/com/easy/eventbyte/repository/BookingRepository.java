@@ -60,6 +60,21 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
                @Param("statuses") Collection<BookingStatus> statuses,
                @Param("now") Instant now);
 
+    Optional<Booking> findByPaymentIntentId(String paymentIntentId);
+
+    /**
+     * Passe la réservation en confirmed si elle attend encore son paiement.
+     * Conditionnel : une réservation expirée entre-temps (ou déjà confirmée) n'est pas modifiée et la méthode renvoie 0.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            UPDATE Booking b SET b.status = :confirmed
+            WHERE b.id = :id AND b.status IN :statuses
+            """)
+    int confirm(@Param("id") String id,
+                @Param("confirmed") BookingStatus confirmed,
+                @Param("statuses") Collection<BookingStatus> statuses);
+
     /** Même résultat sous forme de map ticketId -> places immobilisées. */
     default Map<String, Long> heldByTicketId(Collection<String> ticketIds) {
         if (ticketIds.isEmpty()) {
