@@ -8,6 +8,24 @@ docker compose up -d
 
 L'API écoute sur [http://localhost:3000](http://localhost:3000) (port attendu par le frontend).
 
+## Architecture
+
+```
+exposition/   controllers REST, listener RabbitMQ, webhook Stripe     ─┐
+service/      orchestration (transactions, appels aux clients)        │ Spring
+repository/   accès aux données (Spring Data JPA)                     │
+model/        entités JPA                                             │
+client/       Strapi, Meilisearch, Stripe (HTTP)                     ─┘
+domain/       règles métier en Java pur, sans Spring ni JPA ◄── utilisé par les couches ci-dessus
+```
+
+Le package `domain` contient les règles qu'on veut pouvoir tester et faire évoluer sans framework :
+frais et total (`BookingPrice`), validité d'une demande (`BookingRules`), stock disponible (`TicketStock`),
+échéance de paiement (`BookingExpiration`), sort d'un paiement reçu (`PaymentDecision`),
+synchronisation idempotente des tickets Strapi (`TicketSync`), conversion des prix (`Prices`).
+Ses tests unitaires tournent en quelques millisecondes ; `DomainIndependenceTest` échoue si une classe du domaine
+importe Spring, JPA, Lombok, Jackson ou une couche technique.
+
 ## Configuration
 
 Les secrets vont dans le fichier `.env` **à la racine du projet** (ignoré par git), que docker compose transmet au backend.

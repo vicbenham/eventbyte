@@ -5,7 +5,7 @@ import com.easy.eventbyte.dto.BookingItemRequest;
 import com.easy.eventbyte.dto.StrapiEventMessage;
 import com.easy.eventbyte.dto.TicketMessage;
 import com.easy.eventbyte.dto.VenueMessage;
-import com.easy.eventbyte.model.BookingStatus;
+import com.easy.eventbyte.domain.BookingStatus;
 import com.easy.eventbyte.model.Event;
 import com.easy.eventbyte.model.Ticket;
 import com.easy.eventbyte.model.Venue;

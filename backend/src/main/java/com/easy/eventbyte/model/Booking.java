@@ -1,5 +1,8 @@
 package com.easy.eventbyte.model;
 
+import com.easy.eventbyte.domain.BookingPrice;
+import com.easy.eventbyte.domain.BookingStatus;
+import com.easy.eventbyte.domain.PricedQuantity;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
@@ -24,9 +27,6 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 public class Booking {
-
-    /** Frais de service par ticket, en centimes (même règle que le mode démo du frontend). */
-    public static final long FEES_PER_TICKET_IN_CENTS = 30;
 
     @Id
     private String id;
@@ -65,7 +65,10 @@ public class Booking {
         this.bookedAt = Instant.now();
         this.status = BookingStatus.REQUESTED;
         this.lines = new ArrayList<>(lines);
-        this.fees = FEES_PER_TICKET_IN_CENTS * lines.stream().mapToInt(BookingLine::getQuantity).sum();
-        this.total = lines.stream().mapToLong(BookingLine::subtotal).sum() + fees;
+        BookingPrice price = BookingPrice.of(lines.stream()
+                .map(line -> new PricedQuantity(line.getQuantity(), line.getUnitPrice()))
+                .toList());
+        this.fees = price.fees();
+        this.total = price.total();
     }
 }

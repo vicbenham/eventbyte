@@ -1,6 +1,4 @@
-package com.easy.eventbyte.model;
-
-import com.fasterxml.jackson.annotation.JsonValue;
+package com.easy.eventbyte.domain;
 
 import java.util.List;
 
@@ -25,8 +23,11 @@ public enum BookingStatus {
         this.apiValue = apiValue;
     }
 
-    @JsonValue
     public String apiValue() {
         return apiValue;
+    }
+
+    public boolean isAwaitingPayment() {
+        return AWAITING_PAYMENT_STATUSES.contains(this);
     }
 }

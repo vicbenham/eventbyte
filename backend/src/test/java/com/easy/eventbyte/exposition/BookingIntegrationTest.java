@@ -3,7 +3,7 @@ package com.easy.eventbyte.exposition;
 import com.easy.eventbyte.TestcontainersConfiguration;
 import com.easy.eventbyte.dto.BookingItemRequest;
 import com.easy.eventbyte.model.Booking;
-import com.easy.eventbyte.model.BookingStatus;
+import com.easy.eventbyte.domain.BookingStatus;
 import com.easy.eventbyte.model.Event;
 import com.easy.eventbyte.model.Ticket;
 import com.easy.eventbyte.model.Venue;

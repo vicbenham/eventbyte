@@ -2,6 +2,7 @@ package com.easy.eventbyte.service;
 
 import com.easy.eventbyte.client.MeilisearchClient;
 import com.easy.eventbyte.client.StrapiClient;
+import com.easy.eventbyte.domain.TicketSync;
 import com.easy.eventbyte.dto.EventDocument;
 import com.easy.eventbyte.dto.StrapiEventMessage;
 import com.easy.eventbyte.dto.TicketMessage;
@@ -40,7 +41,7 @@ public class EventIngestionService {
 
 
     public void save(StrapiEventMessage message) {
-        if (deletedEventRepository.existsById(message.id())) {
+        if (!TicketSync.shouldApply(deletedEventRepository.existsById(message.id()))) {
             log.info("Événement {} déjà supprimé, message ignoré", message.id());
             return;
         }
@@ -81,20 +82,17 @@ public class EventIngestionService {
 
     private void updateTickets(Event event, StrapiEventMessage message) {
         List<TicketMessage> tickets = message.tickets() == null ? List.of() : message.tickets();
-        Map<String, TicketMessage> incoming = tickets.stream()
-                .collect(Collectors.toMap(TicketMessage::id, Function.identity()));
+        TicketSync sync = TicketSync.between(
+                event.getTickets().stream().map(Ticket::getId).toList(),
+                tickets.stream().map(TicketMessage::id).toList());
 
-        event.getTickets().removeIf(ticket -> !incoming.containsKey(ticket.getId()));
+        event.getTickets().removeIf(ticket -> sync.removed().contains(ticket.getId()));
+        sync.added().forEach(id -> event.getTickets().add(new Ticket(id, event)));
 
-        Map<String, Ticket> existing = event.getTickets().stream()
+        Map<String, Ticket> byId = event.getTickets().stream()
                 .collect(Collectors.toMap(Ticket::getId, Function.identity()));
-
         for (TicketMessage ticketMessage : tickets) {
-            Ticket ticket = existing.get(ticketMessage.id());
-            if (ticket == null) {
-                ticket = new Ticket(ticketMessage.id(), event);
-                event.getTickets().add(ticket);
-            }
+            Ticket ticket = byId.get(ticketMessage.id());
             ticket.setName(ticketMessage.name());
             ticket.setQuantity(ticketMessage.quantity());
             ticket.setPriceInCents(ticketMessage.priceInCents());

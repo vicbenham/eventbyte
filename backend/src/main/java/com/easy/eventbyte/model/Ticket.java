@@ -1,5 +1,6 @@
 package com.easy.eventbyte.model;
 
+import com.easy.eventbyte.domain.TicketStock;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
@@ -37,6 +38,6 @@ public class Ticket {
 
     /** Places encore réservables : stock défini dans Strapi moins les places déjà réservées. */
     public int availableQuantity(long held) {
-        return (int) Math.max(quantity - held, 0);
+        return TicketStock.available(quantity, held);
     }
 }
