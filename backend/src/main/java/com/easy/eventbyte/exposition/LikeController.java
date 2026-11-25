@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,6 +22,12 @@ public class LikeController {
     @PostMapping
     public ResponseEntity<Void> like(@PathVariable String eventId, @AuthenticationPrincipal Jwt jwt) {
         likeService.like(jwt.getSubject(), eventId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping
+    public ResponseEntity<Void> unlike(@PathVariable String eventId, @AuthenticationPrincipal Jwt jwt) {
+        likeService.unlike(jwt.getSubject(), eventId);
         return ResponseEntity.ok().build();
     }
 }

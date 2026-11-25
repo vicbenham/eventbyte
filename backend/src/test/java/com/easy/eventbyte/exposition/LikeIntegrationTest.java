@@ -2,6 +2,7 @@ package com.easy.eventbyte.exposition;
 
 import com.easy.eventbyte.TestcontainersConfiguration;
 import com.easy.eventbyte.model.Event;
+import com.easy.eventbyte.model.EventLikeId;
 import com.easy.eventbyte.model.Venue;
 import com.easy.eventbyte.repository.EventLikeRepository;
 import com.easy.eventbyte.repository.EventRepository;
@@ -23,13 +24,14 @@ import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** US-8 : POST /events/:eventId/like. */
+/** US-8 et US-9 : POST et DELETE /events/:eventId/like. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -116,6 +118,64 @@ class LikeIntegrationTest {
                 .andExpect(status().isUnauthorized());
 
         assertThat(eventLikeRepository.countByEventId(eventId)).isZero();
+    }
+
+    // US-9 : DELETE /events/:eventId/like
+
+    @Test
+    void retirer_son_like_repond_200_sans_corps_et_met_a_jour_likedCount() throws Exception {
+        String eventId = createEvent();
+        mvc.perform(post("/events/{id}/like", eventId).with(user("alice"))).andExpect(status().isOk());
+
+        mvc.perform(delete("/events/{id}/like", eventId).with(user("alice")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(""));
+
+        mvc.perform(get("/events/{id}", eventId))
+                .andExpect(jsonPath("$.likedCount").value(0));
+    }
+
+    @Test
+    void retirer_son_like_ne_touche_pas_aux_likes_des_autres() throws Exception {
+        String eventId = createEvent();
+        mvc.perform(post("/events/{id}/like", eventId).with(user("alice"))).andExpect(status().isOk());
+        mvc.perform(post("/events/{id}/like", eventId).with(user("bob"))).andExpect(status().isOk());
+
+        mvc.perform(delete("/events/{id}/like", eventId).with(user("alice"))).andExpect(status().isOk());
+
+        mvc.perform(get("/events/{id}", eventId))
+                .andExpect(jsonPath("$.likedCount").value(1));
+        assertThat(eventLikeRepository.existsById(new EventLikeId("bob", eventId))).isTrue();
+    }
+
+    @Test
+    void retirer_un_like_absent_ou_deja_retire_reussit() throws Exception {
+        String eventId = createEvent();
+
+        mvc.perform(delete("/events/{id}/like", eventId).with(user("alice"))).andExpect(status().isOk());
+        mvc.perform(delete("/events/{id}/like", "evt_supprime_entre_temps").with(user("alice"))).andExpect(status().isOk());
+    }
+
+    @Test
+    void on_peut_liker_a_nouveau_apres_avoir_retire_son_like() throws Exception {
+        String eventId = createEvent();
+        mvc.perform(post("/events/{id}/like", eventId).with(user("alice"))).andExpect(status().isOk());
+        mvc.perform(delete("/events/{id}/like", eventId).with(user("alice"))).andExpect(status().isOk());
+
+        mvc.perform(post("/events/{id}/like", eventId).with(user("alice"))).andExpect(status().isOk());
+
+        mvc.perform(get("/events/{id}", eventId))
+                .andExpect(jsonPath("$.likedCount").value(1));
+    }
+
+    @Test
+    void retirer_un_like_sans_etre_connecte_repond_401() throws Exception {
+        String eventId = createEvent();
+        mvc.perform(post("/events/{id}/like", eventId).with(user("alice"))).andExpect(status().isOk());
+
+        mvc.perform(delete("/events/{id}/like", eventId)).andExpect(status().isUnauthorized());
+
+        assertThat(eventLikeRepository.countByEventId(eventId)).isEqualTo(1);
     }
 
     /** Utilisateur connecté : JWT dont le sub est l'identifiant donné. */

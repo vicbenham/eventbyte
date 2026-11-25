@@ -21,6 +21,11 @@ public interface EventLikeRepository extends JpaRepository<EventLike, EventLikeI
             """, nativeQuery = true)
     void like(@Param("userId") String userId, @Param("eventId") String eventId);
 
+    /** Retire le like s'il existe, sans erreur sinon. */
+    @Modifying
+    @Query("DELETE FROM EventLike l WHERE l.userId = :userId AND l.eventId = :eventId")
+    void unlike(@Param("userId") String userId, @Param("eventId") String eventId);
+
     long countByEventId(String eventId);
 
     /** Likes par événement, en une requête (les événements sans like sont absents du résultat). */
