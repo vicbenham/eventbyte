@@ -39,4 +39,15 @@ public class EventService {
                 .map(event -> EventResponse.from(event, 0))
                 .toList();
     }
+
+    /**
+     * Détail d'un événement, y compris passé (favoris, réservations).
+     * Un événement sans date n'est pas exposé : le frontend ne saurait pas l'afficher.
+     */
+    public EventResponse getById(String id) {
+        return eventRepository.findById(id)
+                .filter(event -> event.getStartAt() != null)
+                .map(event -> EventResponse.from(event, 0))
+                .orElseThrow(() -> new EventNotFoundException(id));
+    }
 }
