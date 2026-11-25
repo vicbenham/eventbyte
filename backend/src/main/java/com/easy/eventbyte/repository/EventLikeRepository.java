@@ -28,6 +28,10 @@ public interface EventLikeRepository extends JpaRepository<EventLike, EventLikeI
 
     long countByEventId(String eventId);
 
+    /** Événements likés par l'utilisateur, du like le plus récent au plus ancien. */
+    @Query("SELECT l.eventId FROM EventLike l WHERE l.userId = :userId ORDER BY l.likedAt DESC")
+    List<String> findLikedEventIds(@Param("userId") String userId);
+
     /** Likes par événement, en une requête (les événements sans like sont absents du résultat). */
     @Query("""
             SELECT l.eventId AS eventId, COUNT(l) AS count

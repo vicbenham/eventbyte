@@ -55,6 +55,11 @@ public class EventService {
         return getByIds(ids);
     }
 
+    /** Événements likés par l'utilisateur (passés compris), du like le plus récent au plus ancien. */
+    public List<EventResponse> getLiked(String userId) {
+        return getByIds(eventLikeRepository.findLikedEventIds(userId));
+    }
+
     /**
      * Événements correspondant aux ids, dans l'ordre demandé (favoris, réservations).
      * Les ids inconnus, supprimés ou sans date sont ignorés, les doublons ne sont renvoyés qu'une fois.

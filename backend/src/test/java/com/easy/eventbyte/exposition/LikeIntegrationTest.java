@@ -23,6 +23,8 @@ import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -31,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** US-8 et US-9 : POST et DELETE /events/:eventId/like. */
+/** US-8, US-9 et US-10 : liker, retirer son like, voir ses événements likés. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -178,17 +180,78 @@ class LikeIntegrationTest {
         assertThat(eventLikeRepository.countByEventId(eventId)).isEqualTo(1);
     }
 
+    // US-10 : GET /events/liked (utilisateurs uniques par test : les autres tests likent aussi)
+
+    @Test
+    void mes_evenements_likes_sont_renvoyes_du_plus_recent_au_plus_ancien() throws Exception {
+        String me = "user-" + UUID.randomUUID();
+        String premier = createEvent();
+        String second = createEvent();
+        mvc.perform(post("/events/{id}/like", premier).with(user(me))).andExpect(status().isOk());
+        mvc.perform(post("/events/{id}/like", second).with(user(me))).andExpect(status().isOk());
+
+        mvc.perform(get("/events/liked").with(user(me)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].id", contains(second, premier)))
+                .andExpect(jsonPath("$[0].likedCount").value(1))
+                .andExpect(jsonPath("$[0].venue.adresse").value("1 rue de la Paix"));
+    }
+
+    @Test
+    void je_ne_vois_que_mes_propres_likes() throws Exception {
+        String me = "user-" + UUID.randomUUID();
+        String other = "user-" + UUID.randomUUID();
+        String mine = createEvent();
+        String theirs = createEvent();
+        mvc.perform(post("/events/{id}/like", mine).with(user(me))).andExpect(status().isOk());
+        mvc.perform(post("/events/{id}/like", theirs).with(user(other))).andExpect(status().isOk());
+
+        mvc.perform(get("/events/liked").with(user(me)))
+                .andExpect(jsonPath("$[*].id", contains(mine)));
+        mvc.perform(get("/events/liked").with(user(other)))
+                .andExpect(jsonPath("$[*].id", contains(theirs)));
+    }
+
+    @Test
+    void un_like_retire_n_apparait_plus_et_un_evenement_passe_reste_dans_mes_likes() throws Exception {
+        String me = "user-" + UUID.randomUUID();
+        String retire = createEvent();
+        String passe = createEvent(Instant.now().minus(Duration.ofDays(10)));
+        mvc.perform(post("/events/{id}/like", retire).with(user(me))).andExpect(status().isOk());
+        mvc.perform(post("/events/{id}/like", passe).with(user(me))).andExpect(status().isOk());
+        mvc.perform(delete("/events/{id}/like", retire).with(user(me))).andExpect(status().isOk());
+
+        mvc.perform(get("/events/liked").with(user(me)))
+                .andExpect(jsonPath("$[*].id", contains(passe)));
+    }
+
+    @Test
+    void sans_like_la_liste_est_vide() throws Exception {
+        mvc.perform(get("/events/liked").with(user("user-" + UUID.randomUUID())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void mes_likes_sans_etre_connecte_repond_401() throws Exception {
+        mvc.perform(get("/events/liked")).andExpect(status().isUnauthorized());
+    }
+
     /** Utilisateur connecté : JWT dont le sub est l'identifiant donné. */
     private static JwtRequestPostProcessor user(String subject) {
         return jwt().jwt(token -> token.subject(subject));
     }
 
     private String createEvent() {
+        return createEvent(Instant.now().plus(Duration.ofDays(7)));
+    }
+
+    private String createEvent(Instant startAt) {
         Event event = new Event("evt_" + UUID.randomUUID());
         event.setTitle("Concert");
         event.setDescription("Une soirée");
         event.setCoverUrl("https://cdn/cover.png");
-        event.setStartAt(Instant.now().plus(Duration.ofDays(7)));
+        event.setStartAt(startAt);
         event.setVenue(new Venue("Salle", "1 rue de la Paix", 48.85, 2.35));
         event.setUpdatedAt(Instant.now());
         return eventRepository.save(event).getId();
