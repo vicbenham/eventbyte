@@ -1,16 +1,21 @@
 package com.easy.eventbyte.exposition;
 
 import com.easy.eventbyte.dto.BookingIdResponse;
+import com.easy.eventbyte.dto.BookingResponse;
 import com.easy.eventbyte.dto.CreateBookingRequest;
 import com.easy.eventbyte.service.BookingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /** Réservations de l'utilisateur connecté (authentifiées dans SecurityConfig). */
 @RestController
@@ -23,5 +28,15 @@ public class BookingController {
     @PostMapping
     public BookingIdResponse create(@Valid @RequestBody CreateBookingRequest request, @AuthenticationPrincipal Jwt jwt) {
         return new BookingIdResponse(bookingService.create(jwt.getSubject(), request.items()));
+    }
+
+    @GetMapping("/user")
+    public List<BookingResponse> userBookings(@AuthenticationPrincipal Jwt jwt) {
+        return bookingService.getUserBookings(jwt.getSubject());
+    }
+
+    @GetMapping("/{id}")
+    public BookingResponse getById(@PathVariable String id, @AuthenticationPrincipal Jwt jwt) {
+        return bookingService.getById(jwt.getSubject(), id);
     }
 }
