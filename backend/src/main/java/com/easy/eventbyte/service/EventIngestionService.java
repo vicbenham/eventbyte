@@ -36,6 +36,7 @@ public class EventIngestionService {
     private final DeletedEventRepository deletedEventRepository;
     private final StrapiClient strapiClient;
     private final MeilisearchClient meilisearchClient;
+    private final TicketStockService ticketStockService;
 
 
     public void save(StrapiEventMessage message) {
@@ -61,10 +62,14 @@ public class EventIngestionService {
         eventRepository.save(event);
         // Dans la transaction : si Meilisearch échoue, rien n'est enregistré et le message est rejoué
         meilisearchClient.index(List.of(EventDocument.from(event)));
+        // Le stock a pu changer dans Strapi : les compteurs Redis seront recalculés depuis la base
+        ticketStockService.invalidateAfterCommit(event.getTickets().stream().map(Ticket::getId).toList());
         log.info("Événement {} enregistré avec {} ticket(s)", event.getId(), event.getTickets().size());
     }
 
     public void delete(String eventId) {
+        eventRepository.findById(eventId).ifPresent(event -> ticketStockService.invalidateAfterCommit(
+                event.getTickets().stream().map(Ticket::getId).toList()));
         eventRepository.deleteById(eventId);
         meilisearchClient.delete(eventId);
         if (!deletedEventRepository.existsById(eventId)) {

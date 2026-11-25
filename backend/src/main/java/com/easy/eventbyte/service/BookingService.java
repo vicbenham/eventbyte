@@ -26,6 +26,7 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final TicketRepository ticketRepository;
+    private final TicketStockService ticketStockService;
 
     /**
      * Crée une réservation (statut requested) puis la passe en reserved si le stock suffit pour
@@ -36,8 +37,7 @@ public class BookingService {
     public String create(String userId, List<BookingItemRequest> items) {
         Map<String, Integer> quantities = mergeQuantitiesByTicket(items);
 
-        // Verrouille les tickets demandés : les réservations concurrentes des mêmes tickets attendent leur tour
-        List<Ticket> tickets = ticketRepository.findAllByIdForUpdate(quantities.keySet());
+        List<Ticket> tickets = ticketRepository.findAllById(quantities.keySet());
         Event event = checkSameUpcomingEvent(tickets, quantities.size());
 
         List<BookingLine> lines = tickets.stream()
@@ -45,15 +45,11 @@ public class BookingService {
                 .toList();
         Booking booking = bookingRepository.save(new Booking(userId, event.getId(), lines));
 
-        booking.setStatus(hasEnoughStock(tickets, quantities) ? BookingStatus.RESERVED : BookingStatus.REJECTED);
+        // Décision atomique dans Redis : deux réservations du dernier ticket ne peuvent pas réussir toutes les deux
+        boolean reserved = ticketStockService.tryReserve(tickets, quantities);
+        booking.setStatus(reserved ? BookingStatus.RESERVED : BookingStatus.REJECTED);
         log.info("Réservation {} de {} : {}", booking.getId(), userId, booking.getStatus());
         return booking.getId();
-    }
-
-    private boolean hasEnoughStock(List<Ticket> tickets, Map<String, Integer> quantities) {
-        Map<String, Long> held = bookingRepository.heldByTicketId(quantities.keySet());
-        return tickets.stream().allMatch(ticket ->
-                ticket.availableQuantity(held.getOrDefault(ticket.getId(), 0L)) >= quantities.get(ticket.getId()));
     }
 
     /** Un même ticket demandé sur deux lignes compte pour une seule ligne. */
