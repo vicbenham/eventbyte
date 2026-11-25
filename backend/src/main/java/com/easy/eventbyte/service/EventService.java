@@ -3,6 +3,8 @@ package com.easy.eventbyte.service;
 import com.easy.eventbyte.client.MeilisearchClient;
 import com.easy.eventbyte.dto.EventResponse;
 import com.easy.eventbyte.model.Event;
+import com.easy.eventbyte.repository.EventLikeCount;
+import com.easy.eventbyte.repository.EventLikeRepository;
 import com.easy.eventbyte.repository.EventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,22 +30,19 @@ public class EventService {
 
     private final EventRepository eventRepository;
     private final MeilisearchClient meilisearchClient;
+    private final EventLikeRepository eventLikeRepository;
 
     /** Événements à venir les plus proches de la position, dans un rayon de {@value #DISCOVER_RADIUS_KM} km. */
     public List<EventResponse> discover(double lat, double lng) {
         double latDelta = DISCOVER_RADIUS_KM / KM_PER_DEGREE_OF_LATITUDE;
         double lngDelta = latDelta / Math.max(Math.cos(Math.toRadians(lat)), 0.01);
 
-        return eventRepository.findUpcomingNear(
-                        lat, lng,
-                        lat - latDelta, lat + latDelta,
-                        lng - lngDelta, lng + lngDelta,
-                        Instant.now(),
-                        DISCOVER_LIMIT)
-                .stream()
-                // likedCount : les likes arrivent avec l'US-8
-                .map(event -> EventResponse.from(event, 0))
-                .toList();
+        return toResponses(eventRepository.findUpcomingNear(
+                lat, lng,
+                lat - latDelta, lat + latDelta,
+                lng - lngDelta, lng + lngDelta,
+                Instant.now(),
+                DISCOVER_LIMIT));
     }
 
     /**
@@ -65,11 +64,10 @@ public class EventService {
         Map<String, Event> eventsById = eventRepository.findAllById(distinctIds).stream()
                 .collect(Collectors.toMap(Event::getId, Function.identity()));
 
-        return distinctIds.stream()
+        return toResponses(distinctIds.stream()
                 .map(eventsById::get)
                 .filter(event -> event != null && event.getStartAt() != null)
-                .map(event -> EventResponse.from(event, 0))
-                .toList();
+                .toList());
     }
 
     /**
@@ -79,7 +77,21 @@ public class EventService {
     public EventResponse getById(String id) {
         return eventRepository.findById(id)
                 .filter(event -> event.getStartAt() != null)
-                .map(event -> EventResponse.from(event, 0))
+                .map(event -> EventResponse.from(event, eventLikeRepository.countByEventId(id)))
                 .orElseThrow(() -> new EventNotFoundException(id));
+    }
+
+    /** Convertit une liste d'événements en chargeant leurs likes en une seule requête. */
+    private List<EventResponse> toResponses(List<Event> events) {
+        if (events.isEmpty()) {
+            return List.of();
+        }
+        Map<String, Long> likes = eventLikeRepository.countByEventIds(events.stream().map(Event::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(EventLikeCount::getEventId, EventLikeCount::getCount));
+
+        return events.stream()
+                .map(event -> EventResponse.from(event, likes.getOrDefault(event.getId(), 0L)))
+                .toList();
     }
 }
