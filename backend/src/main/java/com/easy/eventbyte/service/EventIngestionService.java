@@ -1,5 +1,6 @@
 package com.easy.eventbyte.service;
 
+import com.easy.eventbyte.client.StrapiClient;
 import com.easy.eventbyte.dto.StrapiEventMessage;
 import com.easy.eventbyte.dto.TicketMessage;
 import com.easy.eventbyte.model.DeletedEvent;
@@ -31,6 +32,7 @@ public class EventIngestionService {
 
     private final EventRepository eventRepository;
     private final DeletedEventRepository deletedEventRepository;
+    private final StrapiClient strapiClient;
 
 
     public void save(StrapiEventMessage message) {
@@ -43,6 +45,8 @@ public class EventIngestionService {
         event.setTitle(message.title());
         event.setDescription(message.description());
         event.setCoverUrl(message.cover());
+        // startAt n'est pas dans le message : on le lit dans Strapi (on garde l'ancienne valeur en cas d'échec)
+        strapiClient.findStartAt(message.id()).ifPresent(event::setStartAt);
         event.setVenue(new Venue(
                 message.venue().name(),
                 message.venue().address(),

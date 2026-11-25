@@ -3,6 +3,8 @@ package com.easy.eventbyte.config;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+import com.easy.eventbyte.exposition.EventController;
+import com.easy.eventbyte.service.EventService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -18,7 +20,9 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultMatcher;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -27,6 +31,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.time.Duration;
 import java.time.Instant;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -37,9 +42,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * US-3 : les routes authentifiées répondent 401 sans token valide.
  * Les tokens sont signés avec une clé générée pour le test, à la place de celle de Keycloak.
- * Aucune route n'a encore de controller : une requête autorisée aboutit donc à 404, pas à 401.
+ * Une requête autorisée par la sécurité aboutit à autre chose que 401 (404 si la route n'a pas encore de controller).
  */
-@WebMvcTest
+@WebMvcTest(EventController.class)
 @Import({SecurityConfig.class, SecurityConfigTest.TestJwtConfig.class})
 class SecurityConfigTest {
 
@@ -49,6 +54,8 @@ class SecurityConfigTest {
 
     @Autowired
     MockMvc mvc;
+    @MockitoBean
+    EventService eventService;
 
     @Test
     void sans_token_une_route_authentifiee_repond_401() throws Exception {
@@ -97,10 +104,11 @@ class SecurityConfigTest {
 
     @Test
     void les_routes_publiques_sont_accessibles_sans_token() throws Exception {
-        mvc.perform(get("/events/discover")).andExpect(status().isNotFound());
-        mvc.perform(get("/events/evt_1")).andExpect(status().isNotFound());
-        mvc.perform(get("/events/evt_1/tickets")).andExpect(status().isNotFound());
-        mvc.perform(get("/events/search")).andExpect(status().isNotFound());
+        mvc.perform(get("/events/discover").param("lat", "48.85").param("lng", "2.35")).andExpect(notUnauthorized());
+        mvc.perform(get("/events").param("ids", "evt_1")).andExpect(notUnauthorized());
+        mvc.perform(get("/events/evt_1")).andExpect(notUnauthorized());
+        mvc.perform(get("/events/evt_1/tickets")).andExpect(notUnauthorized());
+        mvc.perform(get("/events/search")).andExpect(notUnauthorized());
     }
 
     @Test
@@ -119,6 +127,10 @@ class SecurityConfigTest {
                         .header(HttpHeaders.ORIGIN, "http://evil.example")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
                 .andExpect(status().isForbidden());
+    }
+
+    private static ResultMatcher notUnauthorized() {
+        return result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401);
     }
 
     private static String validToken() {
