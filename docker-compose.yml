@@ -111,6 +111,8 @@ services:
       STRAPI_URL: http://strapi:1337
       STRAPI_API_TOKEN: ${STRAPI_API_TOKEN:-}
       MEILISEARCH_HOST: http://meilisearch:7700
+      # Paiement Stripe (clé secrète de test, dans le .env racine non versionné)
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

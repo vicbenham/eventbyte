@@ -70,7 +70,9 @@ class BookingIntegrationTest {
         assertThat(booking.getStatus()).isEqualTo(BookingStatus.RESERVED);
         assertThat(booking.getUserId()).isEqualTo("alice");
         assertThat(booking.getEventId()).isEqualTo(event.getId());
-        assertThat(booking.getTotal()).isEqualTo(2 * 2500 + 9000);
+        // 3 tickets : prix + 30 centimes de frais par ticket
+        assertThat(booking.getFees()).isEqualTo(3 * 30);
+        assertThat(booking.getTotal()).isEqualTo(2 * 2500 + 9000 + 3 * 30);
         assertThat(booking.getLines()).extracting("ticketId", "name", "quantity", "unitPrice").containsExactlyInAnyOrder(
                 tuple(ticketId(event, "Standard"), "Standard", 2, 2500L),
                 tuple(ticketId(event, "VIP"), "VIP", 1, 9000L));
@@ -173,8 +175,8 @@ class BookingIntegrationTest {
                 .andExpect(jsonPath("$.eventId").value(event.getId()))
                 .andExpect(jsonPath("$.bookedAt").isString())
                 .andExpect(jsonPath("$.status").value("reserved"))
-                .andExpect(jsonPath("$.total").value(2 * 2500 + 9000))
-                .andExpect(jsonPath("$.fees").value(0))
+                .andExpect(jsonPath("$.total").value(2 * 2500 + 9000 + 3 * 30))
+                .andExpect(jsonPath("$.fees").value(3 * 30))
                 .andExpect(jsonPath("$.clientSecret").doesNotExist())
                 .andExpect(jsonPath("$.lines", hasSize(2)))
                 .andExpect(jsonPath("$.lines[?(@.name == 'VIP')].id").value(ticketId(event, "VIP")))
