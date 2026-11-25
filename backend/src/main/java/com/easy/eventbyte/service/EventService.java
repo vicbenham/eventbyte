@@ -3,6 +3,8 @@ package com.easy.eventbyte.service;
 import com.easy.eventbyte.client.MeilisearchClient;
 import com.easy.eventbyte.dto.EventResponse;
 import com.easy.eventbyte.model.Event;
+import com.easy.eventbyte.model.Ticket;
+import com.easy.eventbyte.repository.BookingRepository;
 import com.easy.eventbyte.repository.EventLikeCount;
 import com.easy.eventbyte.repository.EventLikeRepository;
 import com.easy.eventbyte.repository.EventRepository;
@@ -31,6 +33,7 @@ public class EventService {
     private final EventRepository eventRepository;
     private final MeilisearchClient meilisearchClient;
     private final EventLikeRepository eventLikeRepository;
+    private final BookingRepository bookingRepository;
 
     /** Événements à venir les plus proches de la position, dans un rayon de {@value #DISCOVER_RADIUS_KM} km. */
     public List<EventResponse> discover(double lat, double lng) {
@@ -82,11 +85,11 @@ public class EventService {
     public EventResponse getById(String id) {
         return eventRepository.findById(id)
                 .filter(event -> event.getStartAt() != null)
-                .map(event -> EventResponse.from(event, eventLikeRepository.countByEventId(id)))
+                .map(event -> toResponses(List.of(event)).getFirst())
                 .orElseThrow(() -> new EventNotFoundException(id));
     }
 
-    /** Convertit une liste d'événements en chargeant leurs likes en une seule requête. */
+    /** Convertit des événements en chargeant leurs likes et leurs places réservées en deux requêtes. */
     private List<EventResponse> toResponses(List<Event> events) {
         if (events.isEmpty()) {
             return List.of();
@@ -95,8 +98,13 @@ public class EventService {
                 .stream()
                 .collect(Collectors.toMap(EventLikeCount::getEventId, EventLikeCount::getCount));
 
+        Map<String, Long> held = bookingRepository.heldByTicketId(events.stream()
+                .flatMap(event -> event.getTickets().stream())
+                .map(Ticket::getId)
+                .toList());
+
         return events.stream()
-                .map(event -> EventResponse.from(event, likes.getOrDefault(event.getId(), 0L)))
+                .map(event -> EventResponse.from(event, likes.getOrDefault(event.getId(), 0L), held))
                 .toList();
     }
 }

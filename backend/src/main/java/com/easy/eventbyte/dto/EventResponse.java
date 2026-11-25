@@ -4,6 +4,7 @@ import com.easy.eventbyte.model.Event;
 import com.easy.eventbyte.model.Ticket;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 
 /** Événement tel que l'exposent les routes /events (contrat d'API du README). */
@@ -19,23 +20,28 @@ public record EventResponse(
         String description
 ) {
 
-    public static EventResponse from(Event event, long likedCount) {
+    /**
+     * @param likedCount nombre de likes de l'événement
+     * @param heldByTicketId places déjà réservées par ticket (absent = aucune)
+     */
+    public static EventResponse from(Event event, long likedCount, Map<String, Long> heldByTicketId) {
         return new EventResponse(
                 event.getId(),
                 event.getTitle(),
                 Objects.requireNonNullElse(event.getCoverUrl(), ""),
                 likedCount,
                 VenueResponse.from(event.getVenue()),
-                isSoldOut(event),
+                isSoldOut(event, heldByTicketId),
                 event.getStartAt(),
                 lowestPrice(event),
                 Objects.requireNonNullElse(event.getDescription(), "")
         );
     }
 
-    /** Complet quand plus aucun type de ticket n'a de stock (les réservations seront déduites avec l'US-13). */
-    private static boolean isSoldOut(Event event) {
-        return event.getTickets().stream().allMatch(ticket -> ticket.getQuantity() <= 0);
+    /** Complet quand plus aucun type de ticket n'a de place réservable. */
+    private static boolean isSoldOut(Event event, Map<String, Long> heldByTicketId) {
+        return event.getTickets().stream()
+                .allMatch(ticket -> ticket.availableQuantity(heldByTicketId.getOrDefault(ticket.getId(), 0L)) <= 0);
     }
 
     /** Prix le plus bas en centimes parmi les tickets, 0 si l'événement n'en a pas. */

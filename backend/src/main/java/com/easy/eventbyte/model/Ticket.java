@@ -34,4 +34,9 @@ public class Ticket {
         this.id = id;
         this.event = event;
     }
+
+    /** Places encore réservables : stock défini dans Strapi moins les places déjà réservées. */
+    public int availableQuantity(long held) {
+        return (int) Math.max(quantity - held, 0);
+    }
 }

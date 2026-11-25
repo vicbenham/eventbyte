@@ -3,6 +3,7 @@ package com.easy.eventbyte.service;
 import com.easy.eventbyte.dto.TicketResponse;
 import com.easy.eventbyte.model.Event;
 import com.easy.eventbyte.model.Ticket;
+import com.easy.eventbyte.repository.BookingRepository;
 import com.easy.eventbyte.repository.EventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -17,11 +19,14 @@ import java.util.List;
 public class TicketService {
 
     private final EventRepository eventRepository;
+    private final BookingRepository bookingRepository;
 
-    /** Types de tickets de l'événement, du moins cher au plus cher. */
+    /** Types de tickets de l'événement, du moins cher au plus cher, avec la quantité encore réservable. */
     public List<TicketResponse> getTickets(String eventId) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new EventNotFoundException(eventId));
+        Map<String, Long> held = bookingRepository.heldByTicketId(
+                event.getTickets().stream().map(Ticket::getId).toList());
 
         return event.getTickets().stream()
                 .sorted(Comparator.comparingLong(Ticket::getPriceInCents).thenComparing(Ticket::getName))
@@ -30,15 +35,7 @@ public class TicketService {
                         eventId,
                         ticket.getName(),
                         ticket.getPriceInCents(),
-                        availableQuantity(ticket)))
+                        ticket.availableQuantity(held.getOrDefault(ticket.getId(), 0L))))
                 .toList();
-    }
-
-    /**
-     * Quantité encore réservable : stock défini dans Strapi moins les places des réservations en cours.
-     * Les réservations arrivent avec l'US-12/13 : c'est ici qu'elles seront déduites.
-     */
-    public static int availableQuantity(Ticket ticket) {
-        return Math.max(ticket.getQuantity(), 0);
     }
 }
