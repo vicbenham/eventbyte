@@ -103,6 +103,50 @@ class EventControllerIntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void le_detail_d_un_evenement_est_renvoye_au_format_du_contrat_sans_authentification() throws Exception {
+        Event event = event("Concert", 48.85, 2.35, IN_ONE_WEEK);
+        addTicket(event, "Standard", 0, 2500);
+        addTicket(event, "VIP", 0, 9000);
+        eventRepository.save(event);
+
+        mvc.perform(get("/events/{id}", event.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(event.getId()))
+                .andExpect(jsonPath("$.title").value("Concert"))
+                .andExpect(jsonPath("$.cover").value("https://cdn/cover.png"))
+                .andExpect(jsonPath("$.description").value("Une soirée"))
+                .andExpect(jsonPath("$.likedCount").value(0))
+                .andExpect(jsonPath("$.isSoldOut").value(true))
+                .andExpect(jsonPath("$.lowestPrice").value(2500))
+                .andExpect(jsonPath("$.startAt").value(IN_ONE_WEEK.toString()))
+                .andExpect(jsonPath("$.venue.adresse").value("1 rue de la Paix"))
+                .andExpect(jsonPath("$.venue.coordinates.latitude").value(48.85));
+    }
+
+    @Test
+    void le_detail_d_un_evenement_passe_reste_consultable() throws Exception {
+        Event past = eventRepository.save(event("Passé", 48.85, 2.35, Instant.now().minus(Duration.ofDays(30))));
+
+        mvc.perform(get("/events/{id}", past.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Passé"));
+    }
+
+    @Test
+    void un_evenement_inexistant_repond_404() throws Exception {
+        mvc.perform(get("/events/{id}", "evt_inconnu"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void un_evenement_sans_date_repond_404() throws Exception {
+        Event withoutDate = eventRepository.save(event("Sans date", 48.85, 2.35, null));
+
+        mvc.perform(get("/events/{id}", withoutDate.getId()))
+                .andExpect(status().isNotFound());
+    }
+
     private static Event event(String title, double latitude, double longitude, Instant startAt) {
         Event event = new Event("evt_" + UUID.randomUUID());
         event.setTitle(title);
