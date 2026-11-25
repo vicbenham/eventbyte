@@ -1,6 +1,8 @@
 package com.easy.eventbyte.service;
 
+import com.easy.eventbyte.client.MeilisearchClient;
 import com.easy.eventbyte.client.StrapiClient;
+import com.easy.eventbyte.dto.EventDocument;
 import com.easy.eventbyte.dto.StrapiEventMessage;
 import com.easy.eventbyte.dto.TicketMessage;
 import com.easy.eventbyte.model.DeletedEvent;
@@ -33,6 +35,7 @@ public class EventIngestionService {
     private final EventRepository eventRepository;
     private final DeletedEventRepository deletedEventRepository;
     private final StrapiClient strapiClient;
+    private final MeilisearchClient meilisearchClient;
 
 
     public void save(StrapiEventMessage message) {
@@ -56,11 +59,14 @@ public class EventIngestionService {
         updateTickets(event, message);
 
         eventRepository.save(event);
+        // Dans la transaction : si Meilisearch échoue, rien n'est enregistré et le message est rejoué
+        meilisearchClient.index(List.of(EventDocument.from(event)));
         log.info("Événement {} enregistré avec {} ticket(s)", event.getId(), event.getTickets().size());
     }
 
     public void delete(String eventId) {
         eventRepository.deleteById(eventId);
+        meilisearchClient.delete(eventId);
         if (!deletedEventRepository.existsById(eventId)) {
             deletedEventRepository.save(new DeletedEvent(eventId, Instant.now()));
         }

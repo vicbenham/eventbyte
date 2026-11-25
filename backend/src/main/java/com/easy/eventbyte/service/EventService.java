@@ -1,5 +1,6 @@
 package com.easy.eventbyte.service;
 
+import com.easy.eventbyte.client.MeilisearchClient;
 import com.easy.eventbyte.dto.EventResponse;
 import com.easy.eventbyte.model.Event;
 import com.easy.eventbyte.repository.EventRepository;
@@ -26,6 +27,7 @@ public class EventService {
     private static final double KM_PER_DEGREE_OF_LATITUDE = 111.32;
 
     private final EventRepository eventRepository;
+    private final MeilisearchClient meilisearchClient;
 
     /** Événements à venir les plus proches de la position, dans un rayon de {@value #DISCOVER_RADIUS_KM} km. */
     public List<EventResponse> discover(double lat, double lng) {
@@ -42,6 +44,16 @@ public class EventService {
                 // likedCount : les likes arrivent avec l'US-8
                 .map(event -> EventResponse.from(event, 0))
                 .toList();
+    }
+
+    /**
+     * Événements à venir dans le rayon (km) qui correspondent au mot-clé (titre, description, lieu),
+     * du plus pertinent au moins pertinent puis du plus proche au plus loin. Sans mot-clé : tous ceux du rayon.
+     */
+    public List<EventResponse> search(String query, double lat, double lng, double radiusKm) {
+        List<String> ids = meilisearchClient.search(query.trim(), lat, lng, radiusKm,
+                Instant.now().getEpochSecond(), DISCOVER_LIMIT);
+        return getByIds(ids);
     }
 
     /**

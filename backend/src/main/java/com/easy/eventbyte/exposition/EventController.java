@@ -29,6 +29,14 @@ public class EventController {
         return eventService.discover(lat, lng);
     }
 
+    @GetMapping("/search")
+    public List<EventResponse> search(@RequestParam double lat,
+                                      @RequestParam double lng,
+                                      @RequestParam double radius,
+                                      @RequestParam(defaultValue = "") String query) {
+        return eventService.search(query, lat, lng, radius);
+    }
+
     @GetMapping("/{id}")
     public EventResponse getById(@PathVariable String id) {
         return eventService.getById(id);
