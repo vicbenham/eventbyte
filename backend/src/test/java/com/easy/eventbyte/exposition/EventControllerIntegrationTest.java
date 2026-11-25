@@ -147,6 +147,45 @@ class EventControllerIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void plusieurs_evenements_sont_renvoyes_dans_l_ordre_des_ids_sans_authentification() throws Exception {
+        Event premier = event("Premier", 48.85, 2.35, IN_ONE_WEEK);
+        addTicket(premier, "Standard", 10, 1500);
+        eventRepository.save(premier);
+        Event second = eventRepository.save(event("Second", 45.76, 4.83, Instant.now().minus(Duration.ofDays(3))));
+
+        mvc.perform(get("/events").param("ids", second.getId() + "," + premier.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].id", contains(second.getId(), premier.getId())))
+                .andExpect(jsonPath("$[1].title").value("Premier"))
+                .andExpect(jsonPath("$[1].lowestPrice").value(1500))
+                .andExpect(jsonPath("$[1].venue.adresse").value("1 rue de la Paix"));
+    }
+
+    @Test
+    void les_ids_inconnus_ou_sans_date_sont_ignores_et_les_doublons_dedoublonnes() throws Exception {
+        Event connu = eventRepository.save(event("Connu", 48.85, 2.35, IN_ONE_WEEK));
+        Event sansDate = eventRepository.save(event("Sans date", 48.85, 2.35, null));
+        String ids = String.join(",", "evt_inconnu", connu.getId(), sansDate.getId(), connu.getId());
+
+        mvc.perform(get("/events").param("ids", ids))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].id", contains(connu.getId())));
+    }
+
+    @Test
+    void une_liste_d_ids_vide_renvoie_une_liste_vide() throws Exception {
+        mvc.perform(get("/events").param("ids", ""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void sans_parametre_ids_la_requete_est_refusee() throws Exception {
+        mvc.perform(get("/events"))
+                .andExpect(status().isBadRequest());
+    }
+
     private static Event event(String title, double latitude, double longitude, Instant startAt) {
         Event event = new Event("evt_" + UUID.randomUUID());
         event.setTitle(title);

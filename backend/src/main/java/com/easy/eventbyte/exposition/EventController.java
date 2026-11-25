@@ -18,6 +18,12 @@ public class EventController {
 
     private final EventService eventService;
 
+    /** GET /events?ids=a,b,c : Spring découpe la liste sur les virgules. */
+    @GetMapping(params = "ids")
+    public List<EventResponse> getByIds(@RequestParam List<String> ids) {
+        return eventService.getByIds(ids);
+    }
+
     @GetMapping("/discover")
     public List<EventResponse> discover(@RequestParam double lat, @RequestParam double lng) {
         return eventService.discover(lat, lng);
