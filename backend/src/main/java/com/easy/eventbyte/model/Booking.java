@@ -25,6 +25,9 @@ import java.util.UUID;
 @NoArgsConstructor
 public class Booking {
 
+    /** Frais de service par ticket, en centimes (même règle que le mode démo du frontend). */
+    public static final long FEES_PER_TICKET_IN_CENTS = 30;
+
     @Id
     private String id;
 
@@ -37,13 +40,16 @@ public class Booking {
     @Enumerated(EnumType.STRING)
     private BookingStatus status;
 
-    /** Montant total en centimes. */
+    /** Montant à payer en centimes : prix des tickets + frais. */
     private long total;
 
-    /** Frais en centimes (calculés avec le paiement, US-16). */
+    /** Frais en centimes, inclus dans le total. */
     private long fees;
 
+    /** Secret du PaymentIntent Stripe : le frontend s'en sert pour payer. */
     private String clientSecret;
+
+    private String paymentIntentId;
 
     /** Échéance de paiement d'une réservation reserved : passé ce délai, elle expire. */
     private Instant expiresAt;
@@ -59,7 +65,7 @@ public class Booking {
         this.bookedAt = Instant.now();
         this.status = BookingStatus.REQUESTED;
         this.lines = new ArrayList<>(lines);
-        this.total = lines.stream().mapToLong(BookingLine::subtotal).sum();
-        this.fees = 0;
+        this.fees = FEES_PER_TICKET_IN_CENTS * lines.stream().mapToInt(BookingLine::getQuantity).sum();
+        this.total = lines.stream().mapToLong(BookingLine::subtotal).sum() + fees;
     }
 }
