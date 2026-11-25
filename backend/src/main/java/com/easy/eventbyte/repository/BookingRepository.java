@@ -3,6 +3,7 @@ package com.easy.eventbyte.repository;
 import com.easy.eventbyte.model.Booking;
 import com.easy.eventbyte.model.BookingStatus;
 import org.springframework.data.domain.Limit;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -12,9 +13,18 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public interface BookingRepository extends JpaRepository<Booking, String> {
+
+    /** Réservation de l'utilisateur (vide si elle n'existe pas ou appartient à quelqu'un d'autre). */
+    @EntityGraph(attributePaths = "lines")
+    Optional<Booking> findByIdAndUserId(String id, String userId);
+
+    /** Réservations de l'utilisateur, les plus récentes d'abord, lignes comprises (une seule requête). */
+    @EntityGraph(attributePaths = "lines")
+    List<Booking> findByUserIdOrderByBookedAtDesc(String userId);
 
     /**
      * Places immobilisées par ticket : réservations réservées, en attente de paiement ou confirmées

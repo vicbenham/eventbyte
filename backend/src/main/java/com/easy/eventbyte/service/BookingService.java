@@ -1,6 +1,7 @@
 package com.easy.eventbyte.service;
 
 import com.easy.eventbyte.dto.BookingItemRequest;
+import com.easy.eventbyte.dto.BookingResponse;
 import com.easy.eventbyte.model.Booking;
 import com.easy.eventbyte.model.BookingLine;
 import com.easy.eventbyte.model.BookingStatus;
@@ -59,6 +60,22 @@ public class BookingService {
         }
         log.info("Réservation {} de {} : {}", booking.getId(), userId, booking.getStatus());
         return booking.getId();
+    }
+
+    /** Réservation de l'utilisateur ; 404 si elle n'existe pas ou appartient à quelqu'un d'autre. */
+    @Transactional(readOnly = true)
+    public BookingResponse getById(String userId, String bookingId) {
+        return bookingRepository.findByIdAndUserId(bookingId, userId)
+                .map(BookingResponse::from)
+                .orElseThrow(() -> new BookingNotFoundException(bookingId));
+    }
+
+    /** Réservations de l'utilisateur, les plus récentes d'abord. */
+    @Transactional(readOnly = true)
+    public List<BookingResponse> getUserBookings(String userId) {
+        return bookingRepository.findByUserIdOrderByBookedAtDesc(userId).stream()
+                .map(BookingResponse::from)
+                .toList();
     }
 
     /** Un même ticket demandé sur deux lignes compte pour une seule ligne. */

@@ -33,13 +33,15 @@ import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** US-12 : POST /bookings. */
+/** US-12 et US-15 : réserver, consulter une réservation ou toutes les siennes. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -158,7 +160,88 @@ class BookingIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    // --- US-15 : GET /bookings/:id et GET /bookings/user
+
+    @Test
+    void je_consulte_ma_reservation_au_format_du_contrat() throws Exception {
+        Event event = createEvent(ticket("Standard", 100, 2500), ticket("VIP", 10, 9000));
+        String id = book("alice", item(event, "Standard", 2), item(event, "VIP", 1));
+
+        mvc.perform(get("/bookings/{id}", id).with(user("alice")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.eventId").value(event.getId()))
+                .andExpect(jsonPath("$.bookedAt").isString())
+                .andExpect(jsonPath("$.status").value("reserved"))
+                .andExpect(jsonPath("$.total").value(2 * 2500 + 9000))
+                .andExpect(jsonPath("$.fees").value(0))
+                .andExpect(jsonPath("$.clientSecret").doesNotExist())
+                .andExpect(jsonPath("$.lines", hasSize(2)))
+                .andExpect(jsonPath("$.lines[?(@.name == 'VIP')].id").value(ticketId(event, "VIP")))
+                .andExpect(jsonPath("$.lines[?(@.name == 'VIP')].quantity").value(1))
+                .andExpect(jsonPath("$.lines[?(@.name == 'VIP')].price").value(9000));
+    }
+
+    @Test
+    void les_statuts_sont_exposes_avec_les_valeurs_du_contrat() throws Exception {
+        Event event = createEvent(ticket("Standard", 1, 2500));
+        String rejected = book("alice", item(event, "Standard", 5));
+        String awaiting = book("alice", item(event, "Standard", 1));
+        setStatus(awaiting, BookingStatus.AWAITING_PAYMENT);
+
+        mvc.perform(get("/bookings/{id}", rejected).with(user("alice"))).andExpect(jsonPath("$.status").value("rejected"));
+        mvc.perform(get("/bookings/{id}", awaiting).with(user("alice"))).andExpect(jsonPath("$.status").value("awaiting-payment"));
+    }
+
+    @Test
+    void une_reservation_inexistante_repond_404() throws Exception {
+        mvc.perform(get("/bookings/{id}", "bkg_inconnue").with(user("alice")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void je_ne_vois_jamais_la_reservation_d_un_autre_utilisateur() throws Exception {
+        Event event = createEvent(ticket("Standard", 10, 2500));
+        String aliceBooking = book("alice", item(event, "Standard", 1));
+
+        mvc.perform(get("/bookings/{id}", aliceBooking).with(user("mallory")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void je_liste_uniquement_mes_reservations_des_plus_recentes_aux_plus_anciennes() throws Exception {
+        String me = "user-" + UUID.randomUUID();
+        Event event = createEvent(ticket("Standard", 10, 2500));
+        String first = book(me, item(event, "Standard", 1));
+        String second = book(me, item(event, "Standard", 2));
+        book("someone-else", item(event, "Standard", 1));
+
+        mvc.perform(get("/bookings/user").with(user(me)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].id", contains(second, first)))
+                .andExpect(jsonPath("$[0].lines[0].quantity").value(2));
+    }
+
+    @Test
+    void sans_reservation_la_liste_est_vide() throws Exception {
+        mvc.perform(get("/bookings/user").with(user("user-" + UUID.randomUUID())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void consulter_ses_reservations_sans_etre_connecte_repond_401() throws Exception {
+        mvc.perform(get("/bookings/user")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/bookings/{id}", "bkg_x")).andExpect(status().isUnauthorized());
+    }
+
     // --- outils
+
+    private void setStatus(String id, BookingStatus status) {
+        Booking booking = bookingRepository.findById(id).orElseThrow();
+        booking.setStatus(status);
+        bookingRepository.save(booking);
+    }
 
     private String book(String user, BookingItemRequest... items) throws Exception {
         String json = postBooking(user, body(items))
