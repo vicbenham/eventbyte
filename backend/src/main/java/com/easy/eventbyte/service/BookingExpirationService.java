@@ -29,6 +29,7 @@ public class BookingExpirationService {
     private final BookingRepository bookingRepository;
     private final TicketStockService ticketStockService;
     private final StripeClient stripeClient;
+    private final BookingEventPublisher bookingEventPublisher;
 
     /** Réservations non payées dont l'échéance est dépassée. */
     @Transactional(readOnly = true)
@@ -53,6 +54,7 @@ public class BookingExpirationService {
                 .collect(Collectors.toMap(BookingLine::getTicketId, BookingLine::getQuantity));
         ticketStockService.releaseAfterCommit(places);
         cancelPaymentAfterCommit(booking.getPaymentIntentId());
+        bookingEventPublisher.publishAfterCommit(booking.getUserId(), bookingId);
         log.info("Réservation {} expirée, places rendues : {}", bookingId, places);
         return true;
     }
