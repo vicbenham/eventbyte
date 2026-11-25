@@ -6,6 +6,7 @@ import com.easy.eventbyte.model.Venue;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -16,7 +17,7 @@ class EventResponseTest {
         Event event = event();
         addTicket(event, "Standard", 100, 2500);
 
-        EventResponse response = EventResponse.from(event, 3);
+        EventResponse response = EventResponse.from(event, 3, Map.of());
 
         assertThat(response.id()).isEqualTo("evt_1");
         assertThat(response.cover()).isEqualTo("https://cdn/cover.png");
@@ -33,7 +34,7 @@ class EventResponseTest {
         addTicket(event, "Early Bird", 50, 1500);
         addTicket(event, "Standard", 100, 2500);
 
-        assertThat(EventResponse.from(event, 0).lowestPrice()).isEqualTo(1500);
+        assertThat(EventResponse.from(event, 0, Map.of()).lowestPrice()).isEqualTo(1500);
     }
 
     @Test
@@ -42,7 +43,7 @@ class EventResponseTest {
         addTicket(event, "Standard", 0, 2500);
         addTicket(event, "VIP", 0, 9000);
 
-        assertThat(EventResponse.from(event, 0).isSoldOut()).isTrue();
+        assertThat(EventResponse.from(event, 0, Map.of()).isSoldOut()).isTrue();
     }
 
     @Test
@@ -51,12 +52,21 @@ class EventResponseTest {
         addTicket(event, "Standard", 0, 2500);
         addTicket(event, "VIP", 1, 9000);
 
-        assertThat(EventResponse.from(event, 0).isSoldOut()).isFalse();
+        assertThat(EventResponse.from(event, 0, Map.of()).isSoldOut()).isFalse();
+    }
+
+    @Test
+    void les_places_deja_reservees_sont_deduites_du_stock() {
+        Event event = event();
+        addTicket(event, "Standard", 5, 2500);
+
+        assertThat(EventResponse.from(event, 0, Map.of("tkt_Standard", 4L)).isSoldOut()).isFalse();
+        assertThat(EventResponse.from(event, 0, Map.of("tkt_Standard", 5L)).isSoldOut()).isTrue();
     }
 
     @Test
     void sans_ticket_l_evenement_est_complet_et_son_prix_vaut_zero() {
-        EventResponse response = EventResponse.from(event(), 0);
+        EventResponse response = EventResponse.from(event(), 0, Map.of());
 
         assertThat(response.isSoldOut()).isTrue();
         assertThat(response.lowestPrice()).isZero();
@@ -68,7 +78,7 @@ class EventResponseTest {
         event.setCoverUrl(null);
         event.setDescription(null);
 
-        EventResponse response = EventResponse.from(event, 0);
+        EventResponse response = EventResponse.from(event, 0, Map.of());
 
         // Le frontend exige des chaînes (schéma zod)
         assertThat(response.cover()).isEmpty();
