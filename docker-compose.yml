@@ -107,6 +107,9 @@ services:
       REDIS_HOST: redis
       # Clés publiques Keycloak via le réseau Docker (l'issuer reste http://localhost:8180/...)
       KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/eventbyte/protocol/openid-connect/certs
+      # Lecture de la date des événements dans Strapi (token Read-only, dans le .env racine non versionné)
+      STRAPI_URL: http://strapi:1337
+      STRAPI_API_TOKEN: ${STRAPI_API_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
