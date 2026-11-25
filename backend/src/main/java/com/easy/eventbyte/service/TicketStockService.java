@@ -65,6 +65,20 @@ public class TicketStockService {
         });
     }
 
+    /** Rend des places au stock une fois la transaction validée (rien si elle est annulée). */
+    public void releaseAfterCommit(Map<String, Integer> quantities) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            release(quantities);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                release(quantities);
+            }
+        });
+    }
+
     /** Oublie les compteurs (stock modifié dans Strapi) une fois la transaction validée : ils seront recalculés. */
     public void invalidateAfterCommit(Collection<String> ticketIds) {
         Runnable invalidate = () -> redis.delete(ticketIds.stream().map(TicketStockService::key).toList());

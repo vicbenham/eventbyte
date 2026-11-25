@@ -45,6 +45,9 @@ public class Booking {
 
     private String clientSecret;
 
+    /** Échéance de paiement d'une réservation reserved : passé ce délai, elle expire. */
+    private Instant expiresAt;
+
     @ElementCollection
     @CollectionTable(name = "booking_lines", joinColumns = @JoinColumn(name = "booking_id"))
     private List<BookingLine> lines = new ArrayList<>();

@@ -10,9 +10,11 @@ import com.easy.eventbyte.repository.BookingRepository;
 import com.easy.eventbyte.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,6 +29,10 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final TicketRepository ticketRepository;
     private final TicketStockService ticketStockService;
+
+    /** Délai pour payer une réservation (aligné sur le compte à rebours du frontend). */
+    @Value("${booking.expiration}")
+    private Duration expiration;
 
     /**
      * Crée une réservation (statut requested) puis la passe en reserved si le stock suffit pour
@@ -48,6 +54,9 @@ public class BookingService {
         // Décision atomique dans Redis : deux réservations du dernier ticket ne peuvent pas réussir toutes les deux
         boolean reserved = ticketStockService.tryReserve(tickets, quantities);
         booking.setStatus(reserved ? BookingStatus.RESERVED : BookingStatus.REJECTED);
+        if (reserved) {
+            booking.setExpiresAt(booking.getBookedAt().plus(expiration));
+        }
         log.info("Réservation {} de {} : {}", booking.getId(), userId, booking.getStatus());
         return booking.getId();
     }
