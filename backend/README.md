@@ -62,13 +62,20 @@ Stripe prévient ensuite le backend sur **`POST /payments/stripe/webhook`** (rou
 sur `payment_intent.succeeded`, la réservation passe en `confirmed` si le montant payé correspond au total.
 Un webhook rejoué est sans effet.
 
-En local, pour recevoir les webhooks :
+En local, Stripe ne peut pas appeler `localhost` : la [Stripe CLI](https://docs.stripe.com/stripe-cli) relaie les webhooks.
+Elle doit tourner en **mode test** (jamais `--live`). Depuis la racine du projet, le plus simple est de lui passer la clé de test :
 
 ```bash
-stripe listen --forward-to localhost:3000/payments/stripe/webhook
+stripe listen --api-key "$(grep '^STRIPE_SECRET_KEY=' .env | cut -d= -f2-)" --events payment_intent.succeeded --forward-to localhost:3000/payments/stripe/webhook
 ```
 
-La commande affiche le secret `whsec_...` à mettre dans `STRIPE_WEBHOOK_SECRET`, puis redémarrer le backend.
+Autre possibilité : `stripe login`, puis `stripe switch` pour choisir le sandbox, puis la même commande sans `--api-key`.
+`--events` est obligatoire avec les versions récentes de la CLI ; le backend n'a besoin que de `payment_intent.succeeded`.
+
+La commande affiche le secret `whsec_...` : le mettre dans `STRIPE_WEBHOOK_SECRET` du `.env` racine
+(il reste le même d'une session à l'autre), puis redémarrer le backend avec `docker compose up -d backend`.
+`stripe listen` doit tourner pendant les tests de paiement et la démo, sinon les réservations payées restent
+`awaiting-payment` puis expirent et sont remboursées.
 
 ### Paiement arrivé après l'expiration (décision du groupe)
 
