@@ -1,3 +1,4 @@
+import { centsFormatter } from "@/lib/price-formatter";
 import { selectBooking, selectBookingEvent, selectIsBookingLoading } from "@/core/booking/booking.slice";
 import { createSelector } from "@reduxjs/toolkit";
 
@@ -74,10 +75,7 @@ export const selectTicketDetailsViewmodel = (bookingId: string) => createSelecto
             minute: '2-digit',
         })
 
-        const priceFormatter = new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'EUR',
-        })
+        const priceFormatter = centsFormatter
 
         const bookedAtDate = new Date(booking.bookedAt)
         const bookedAtFormatter = new Intl.DateTimeFormat('en-US', {

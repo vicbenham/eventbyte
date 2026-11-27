@@ -1,3 +1,4 @@
+import { centsFormatter } from "@/lib/price-formatter";
 import { Button } from "@/design-system/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/design-system/components/ui/card";
 import { Skeleton } from "@/design-system/components/ui/skeleton";
@@ -76,7 +77,7 @@ const TicketCard: FC<TicketCardProps> = ({ ticketId: id }) => {
                 <h3 className="text-lg uppercase">{name}</h3>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
-                <span>€{price}</span>
+                <span>{centsFormatter.format(price)}</span>
                 {soldOut && <Button variant="outline" disabled className="text-base uppercase">Sold out</Button>}
                 {!soldOut && (
                     <div className="flex items-center gap-4">

@@ -144,12 +144,12 @@ describe('Booking Viewmodel', () => {
             .withBooking(bookingEntityBuilder()
                 .withId('booking-1')
                 .withEventId('event-1')
-                .withTotal(6.40)
-                .withFees(0.50)
+                .withTotal(640)
+                .withFees(50)
                 .withClientSecret('client-secret-1')
                 .withLines([
-                    bookingLineEntityBuilder().withId('1').withName('Regular').withPrice(2).withQuantity(2).build(),
-                    bookingLineEntityBuilder().withId('2').withName('Simple').withPrice(1.50).withQuantity(1).build()
+                    bookingLineEntityBuilder().withId('1').withName('Regular').withPrice(200).withQuantity(2).build(),
+                    bookingLineEntityBuilder().withId('2').withName('Simple').withPrice(150).withQuantity(1).build()
                 ])
                 .build()
             )
