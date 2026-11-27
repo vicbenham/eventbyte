@@ -1,3 +1,4 @@
+import { centsFormatter } from "@/lib/price-formatter";
 import { selectBooking, selectBookingEvent, selectIsBookingLoading } from "@/core/booking/booking.slice";
 import { RootState } from "@/core/create-store";
 import { createSelector } from "@reduxjs/toolkit";
@@ -96,10 +97,7 @@ export const selectBookingViewmodel = ({ bookingId }: Params): (state: RootState
             }
         }
 
-        const priceFormater = new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'EUR',
-        });
+        const priceFormater = centsFormatter
 
         const itemsCount = booking.lines.reduce((acc, line) => acc + line.quantity, 0)
 

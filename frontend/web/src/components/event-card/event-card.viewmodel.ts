@@ -1,3 +1,4 @@
+import { centsFormatter } from "@/lib/price-formatter";
 import { RootState } from "@/core/create-store";
 import { selectEventById } from "@/core/events/events.slice";
 import { createSelector } from "@reduxjs/toolkit";
@@ -31,10 +32,7 @@ export const createEventCardViewmodel = ({ id }: Params):
             minute: 'numeric',
         })
 
-        const priceFormatter = new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'EUR',
-        })
+        const priceFormatter = centsFormatter
 
         return {
             title: event.title,

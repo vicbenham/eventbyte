@@ -1,3 +1,4 @@
+import { centsFormatter } from "@/lib/price-formatter";
 import { bookCart } from "@/core/booking/usecases/book-cart/book-cart";
 import { selectCartItems } from "@/core/cart/cart.slice";
 import { addToCart } from "@/core/cart/usecases/add-ticket-to-cart/add-ticket-to-cart";
@@ -30,10 +31,7 @@ export type SelectCartViewmodelProps = {
 }
 
 export const selectCartViewmodel = ({ dispatch, onBookSuccess }: SelectCartViewmodelProps): (state: RootState) => CartViewModel => createSelector([selectCartItems, selectAllTickets], (items, tickets) => {
-    const priceFormater = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'EUR',
-    });
+    const priceFormater = centsFormatter
 
     const lines = items.reduce((acc, item) => {
         const ticket = tickets.find(ticket => ticket.id === item.id)
@@ -49,7 +47,7 @@ export const selectCartViewmodel = ({ dispatch, onBookSuccess }: SelectCartViewm
     }, [] as Line[])
 
     const totalQuantity = items.reduce((acc, item) => acc + item.quantity, 0)
-    const fees = totalQuantity * 0.3
+    const fees = totalQuantity * 30 // 30 centimes par ticket
 
     const total = lines.reduce((acc, item) => {
         const ticket = tickets.find(ticket => ticket.id === item.id)
